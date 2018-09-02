@@ -15,7 +15,10 @@ def deps do
 end
 ```
 
+```
+"a3a1ab ab111 conjure conjoin cons car cdr set"
+```
+
 Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
 and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
 be found at [https://hexdocs.pm/betalang](https://hexdocs.pm/betalang).
-

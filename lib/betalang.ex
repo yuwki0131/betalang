@@ -1,6 +1,16 @@
 defmodule Betalang do
+  use Combine
+  import Combine.Helpers
+  import Combine.ParserState
   import Combine.Parsers.Base
   import Combine.Parsers.Text
+
+  alias Combine.ParserState
+
+  defparser lazy(%ParserState{status: :ok} = state, generator) do
+    (generator.()).(state)
+  end
+
 
   @moduledoc """
   Betalang.
@@ -15,41 +25,59 @@ defmodule Betalang do
     |> process
   end
 
-  defp parse_code do
-    many(s_expression())
+  def parse_code do
+    # many(skip_many(spaces()) |> s_expression |> skip_many(spaces())) |> eof()
+    # many(skip_many(spaces()) |> symbol) |> eof()
+    many(skip(spaces()) |> s_expression) |> eof()
+    # many(skip_many(spaces()) |> s_expression |> skip_many(spaces())) # |> eof()
   end
 
-  defp s_expression do
-    choice([symbol(), lambda_form(), apply_form(), if_form()])
+  def s_expression(prev) do
+    IO.puts "s-expression"
+    IO.puts Kernel.inspect(prev)
+    prev
+    |> lazy(fn -> result = choice([symbol(nil), # lambda_form(nil), #
+                         apply_form(nil) #, if_form(prev)
+                          ]); result end)
   end
 
-  defp symbol do
-    letter() |> many(alphanumeric())
+  def symbol(prev) do
+    IO.puts "symbol"
+    IO.puts Kernel.inspect(prev)
+    prev
+    |> pipe([letter(), many(alphanumeric())],
+    fn charlist -> IO.puts Kernel.inspect(charlist); Enum.join(List.flatten(charlist)) end)
   end
 
-  defp lambda_form do
-    ignore(string("("))
-    |> skip(spaces()) |> string("lambda")
-    |> skip(spaces()) |> ignore(string("("))
-    |> many(skip(spaces()) |> string("symbol") |> skip(spaces()))
-    |> ignore(string(")"))
-    |> skip(spaces()) |> many1(s_expression())
-    |> skip(spaces()) |> ignore(string(")"))
+  def apply_form(prev) do
+    IO.puts "apply form"
+    IO.puts Kernel.inspect(prev)
+    prev
+    |> pipe([ignore(string("("))
+            |> many1(skip_many(spaces()) |> s_expression)
+            |> ignore(string(")"))],
+    fn charlist -> {:apply, charlist} end)
   end
 
-  defp apply_form do
-    ignore(string("("))
-    |> skip(spaces()) |> many1(s_expression())
-    |> skip(spaces()) |> ignore(string(")"))
+  def lambda_form(prev) do
+    IO.puts "lambda form"
+    IO.puts Kernel.inspect(prev)
+    prev
+    |> pipe([
+      ignore(string("("))|> skip_many(spaces())|> ignore(string("lambda"))|> skip_many(spaces())|>
+      ignore(string("("))|> many(skip_many(spaces()) |> symbol |> skip_many(spaces()))|> ignore(string(")"))|>
+      skip_many(spaces()) |> s_expression|> skip_many(spaces())|> ignore(string(")"))],
+      fn symsexp -> { :lambda, symsexp } end)
   end
 
-  defp if_form do
-    ignore(string("("))
-    |> skip(spaces()) |> string("if")
-    |> skip(spaces()) |> choice([s_expression()])
-    |> skip(spaces()) |> choice([s_expression()])
-    |> skip(spaces()) |> choice([s_expression()])
-    |> skip(spaces()) |> ignore(string(")"))
+  def if_form(prev) do
+    prev
+    |> ignore(string("("))
+    |> skip_many(spaces()) |> string("if")
+    |> skip_many(spaces()) |> s_expression
+    |> skip_many(spaces()) |> s_expression
+    |> skip_many(spaces()) |> s_expression
+    |> skip_many(spaces()) |> ignore(string(")"))
   end
 
   # 引数をパースする処理
@@ -75,6 +103,7 @@ defmodule Betalang do
   end
 
   def process(sourcecode) do
-    IO.puts Combine.parse(sourcecode, parse_code())
+    IO.puts sourcecode
+    IO.puts Kernel.inspect(Combine.parse((List.first(sourcecode)), parse_code()))
   end
 end
