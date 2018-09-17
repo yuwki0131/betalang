@@ -27,7 +27,7 @@ defmodule Betalang do
 
   def parse_code do
     # many(skip_many(spaces()) |> s_expression |> skip_many(spaces())) |> eof()
-    many(skip(spaces()) |> s_expression) |> eof()
+    many(skip(spaces()) |> s_expression) # |> eof()
     # many(skip_many(spaces()) |> s_expression |> skip_many(spaces())) # |> eof()
   end
 
@@ -36,8 +36,10 @@ defmodule Betalang do
     IO.puts Kernel.inspect(prev)
     prev
     |> lazy(fn -> result = choice([
-      symbol(nil), # lambda_form(nil), #
-      apply_form(nil) #, if_form(prev)
+      symbol(nil),
+      if_form(prev),
+      lambda_form(nil),
+      apply_form(nil)
     ]); result end)
   end
 
@@ -46,9 +48,10 @@ defmodule Betalang do
     IO.puts Kernel.inspect(prev)
     prev
     |> pipe([letter(), many(alphanumeric())],
-    fn charlist -> IO.puts Kernel.inspect(charlist); Enum.join(List.flatten(charlist)) end)
+    fn charlist -> {:symbol, Enum.join(List.flatten(charlist)) } end)
   end
 
+  # normal form
   def apply_form(prev) do
     IO.puts "apply form"
     IO.puts Kernel.inspect(prev)
@@ -59,25 +62,34 @@ defmodule Betalang do
     fn charlist -> {:apply, charlist} end)
   end
 
+  # special form: if expression
+  def if_form(prev) do
+    IO.puts "if form"
+    IO.puts Kernel.inspect(prev)
+    prev
+    |> pipe([
+      ignore(string("("))
+      |> ignore(skip_many(spaces())) |> ignore(string("if"))
+      |> ignore(skip_many(spaces())) |> s_expression
+      |> ignore(skip_many(spaces())) |> s_expression
+      |> ignore(skip_many(spaces())) |> s_expression
+      |> ignore(skip_many(spaces())) |> ignore(string(")"))],
+    fn symsexp -> { :if, symsexp } end)
+  end
+
+  # special form: lambda abstraction
   def lambda_form(prev) do
     IO.puts "lambda form"
     IO.puts Kernel.inspect(prev)
     prev
     |> pipe([
-      ignore(string("("))|> skip_many(spaces())|> ignore(string("lambda"))|> skip_many(spaces())|>
-      ignore(string("("))|> many(skip_many(spaces()) |> symbol |> skip_many(spaces()))|> ignore(string(")"))|>
-      skip_many(spaces()) |> s_expression|> skip_many(spaces())|> ignore(string(")"))],
+      ignore(string("("))
+      |> skip_many(spaces()) |> ignore(string("lambda"))
+      |> skip_many(spaces()) |> ignore(string("("))
+      |> many(skip_many(spaces()) |> symbol |> skip_many(spaces())) |> ignore(string(")"))
+      |> skip_many(spaces()) |> s_expression
+      |> skip_many(spaces()) |> ignore(string(")"))],
       fn symsexp -> { :lambda, symsexp } end)
-  end
-
-  def if_form(prev) do
-    prev
-    |> ignore(string("("))
-    |> skip_many(spaces()) |> string("if")
-    |> skip_many(spaces()) |> s_expression
-    |> skip_many(spaces()) |> s_expression
-    |> skip_many(spaces()) |> s_expression
-    |> skip_many(spaces()) |> ignore(string(")"))
   end
 
   # 引数側のパース処理
