@@ -27,7 +27,6 @@ defmodule Betalang do
 
   def parse_code do
     # many(skip_many(spaces()) |> s_expression |> skip_many(spaces())) |> eof()
-    # many(skip_many(spaces()) |> symbol) |> eof()
     many(skip(spaces()) |> s_expression) |> eof()
     # many(skip_many(spaces()) |> s_expression |> skip_many(spaces())) # |> eof()
   end
@@ -36,9 +35,10 @@ defmodule Betalang do
     IO.puts "s-expression"
     IO.puts Kernel.inspect(prev)
     prev
-    |> lazy(fn -> result = choice([symbol(nil), # lambda_form(nil), #
-                         apply_form(nil) #, if_form(prev)
-                          ]); result end)
+    |> lazy(fn -> result = choice([
+      symbol(nil), # lambda_form(nil), #
+      apply_form(nil) #, if_form(prev)
+    ]); result end)
   end
 
   def symbol(prev) do
@@ -80,7 +80,7 @@ defmodule Betalang do
     |> skip_many(spaces()) |> ignore(string(")"))
   end
 
-  # 引数をパースする処理
+  # 引数側のパース処理
   def parse_args(argv) do
     parse = OptionParser.parse(argv,
       switches: [ help: :boolean],
@@ -103,7 +103,7 @@ defmodule Betalang do
   end
 
   def process(sourcecode) do
-    IO.puts sourcecode
+    IO.puts ("sourcecode: " <> List.first(sourcecode))
     IO.puts Kernel.inspect(Combine.parse((List.first(sourcecode)), parse_code()))
   end
 end
