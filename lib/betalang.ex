@@ -25,47 +25,50 @@ defmodule Betalang do
     |> process
   end
 
+  def ignore_ignores(ls) do
+    Enum.filter(ls, fn(x) -> x != :__ignore end)
+  end
+
   def parse_code do
-    # many(skip_many(spaces()) |> s_expression |> skip_many(spaces())) |> eof()
-    many(skip(spaces()) |> s_expression) # |> eof()
-    # many(skip_many(spaces()) |> s_expression |> skip_many(spaces())) # |> eof()
+    many(skip(spaces()) |> s_expression) |> eof()
   end
 
   def s_expression(prev) do
-    IO.puts "s-expression"
-    IO.puts Kernel.inspect(prev)
     prev
     |> lazy(fn -> result = choice([
       symbol(nil),
-      if_form(prev),
+      literal(nil),
+      if_form(nil),
       lambda_form(nil),
       apply_form(nil)
     ]); result end)
   end
 
+  # symbol
   def symbol(prev) do
-    IO.puts "symbol"
-    IO.puts Kernel.inspect(prev)
     prev
     |> pipe([letter(), many(alphanumeric())],
     fn charlist -> {:symbol, Enum.join(List.flatten(charlist)) } end)
   end
 
+  # literal
+  def literal(prev) do
+    prev
+    |> pipe([many1(alphanumeric())],
+    fn charlist -> {:literal, Integer.parse(Enum.join(List.flatten(charlist))) } end)
+  end
+
   # normal form
   def apply_form(prev) do
-    IO.puts "apply form"
-    IO.puts Kernel.inspect(prev)
     prev
     |> pipe([ignore(string("("))
             |> many1(skip_many(spaces()) |> s_expression)
             |> ignore(string(")"))],
-    fn charlist -> {:apply, charlist} end)
+    fn sexps -> {:apply, ignore_ignores(sexps)} end)
   end
 
   # special form: if expression
   def if_form(prev) do
-    IO.puts "if form"
-    IO.puts Kernel.inspect(prev)
     prev
     |> pipe([
       ignore(string("("))
@@ -74,22 +77,20 @@ defmodule Betalang do
       |> ignore(skip_many(spaces())) |> s_expression
       |> ignore(skip_many(spaces())) |> s_expression
       |> ignore(skip_many(spaces())) |> ignore(string(")"))],
-    fn symsexp -> { :if, symsexp } end)
+    fn symsexp -> { :if, ignore_ignores(symsexp) } end)
   end
 
   # special form: lambda abstraction
   def lambda_form(prev) do
-    IO.puts "lambda form"
-    IO.puts Kernel.inspect(prev)
     prev
     |> pipe([
       ignore(string("("))
       |> skip_many(spaces()) |> ignore(string("lambda"))
       |> skip_many(spaces()) |> ignore(string("("))
-      |> many(skip_many(spaces()) |> symbol |> skip_many(spaces())) |> ignore(string(")"))
+      |> many1(skip_many(spaces()) |> symbol) |> ignore(string(")"))
       |> skip_many(spaces()) |> s_expression
       |> skip_many(spaces()) |> ignore(string(")"))],
-      fn symsexp -> { :lambda, symsexp } end)
+      fn sexps -> { :lambda, ignore_ignores(sexps) } end)
   end
 
   # 引数側のパース処理
